@@ -1,10 +1,10 @@
-import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+from network import FullyConnectedLayer, ConvolutionalPoolLayer
 import tensorflow as tf
+import numpy as np
 
 if __name__ == '__main__':
-    print('TF version: ', tf.__version__)
-    print('Num GPUs available: ', len(tf.config.list_physical_devices('GPU')))
-    print('Is build with CUDA: ', tf.test.is_built_with_cuda())
-    print('Is build with GPU support: ', tf.test.is_built_with_gpu_support())
+    # a = 5
+    (x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
+    layer1 = ConvolutionalPoolLayer((28, 28), [(10, 10), (4, 4), (5, 5)])
+    layer2 = FullyConnectedLayer(413, 10)
+    print(layer2.pass_through(layer1.pass_through(x_train[0])))

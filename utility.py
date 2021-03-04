@@ -36,6 +36,25 @@ class Sigmoid:
         return Sigmoid.activate(z) * (1 - Sigmoid.activate(z))
 
 
+class ReLu:
+    """Class representing rectifier activation function.
+
+    Rectifier is defined as passing non-negative function values.
+    Generally speaking rectifier computes following function:
+        f(x) = max(0, x)
+    """
+
+    @staticmethod
+    def activate(z):
+
+        return np.maximum(z, 0)
+
+    @staticmethod
+    def derivative(z):
+
+        return np.array((z >= 0) * 1)
+
+
 class SquaredSum:
     """Class representing squared sum cost function.
     Squared sum cost function is given as:
@@ -80,3 +99,37 @@ class CrossEntropy:
             a - y   where a is prediction of y
         """
         return a - y + (z * 0)
+
+
+def convolve_2d(s, f):
+
+    f_x_, f_y_ = f.shape[0], f.shape[1]
+
+    result_dim = (s.shape[0] - f_x_ + 1, s.shape[1] - f_y_ + 1)
+    result = np.zeros(result_dim)
+
+    for i in range(result_dim[0]):
+        for j in range(result_dim[1]):
+            result[i][j] = np.sum(f * s[i: i + f_x_, j: j + f_y_])
+
+    return result
+
+
+def full_convolve_2d(src, fil):
+
+    fil = np.rot90(fil, 2)
+
+    result_dim = (src.shape[0] + fil.shape[0] - 1, src.shape[1] + fil.shape[1] - 1)
+    result = np.zeros(result_dim)
+
+    for j in range(result_dim[0]):
+        for i in range(result_dim[1]):
+
+            src_slice = src[max(0, j + 1 - fil.shape[0]): min(j + 1, src.shape[0]),
+                            max(0, i + 1 - fil.shape[1]): min(i + 1, src.shape[1])]
+            fil_slice = fil[max(fil.shape[0] - j - 1, 0): min(fil.shape[0], src.shape[0] + 1 - j),
+                            max(fil.shape[1] - i - 1, 0): min(fil.shape[1], src.shape[1] + 1 - i)]
+
+            result[j][i] = np.sum(src_slice * fil_slice)
+
+    return result

@@ -83,8 +83,8 @@ class NeuralNetwork:
         if len(accuracies) > 0:
             self.plot(accuracies, 'Accuracies graph for eta: {:.3f}'.format(eta), 'Epochs', 'Accuracy', 'g*-')
 
-
-    def plot(self, y, title, x_label, y_label, styling):
+    @staticmethod
+    def plot(y, title, x_label, y_label, styling):
 
         plt.plot(y, styling)
         plt.title(title)

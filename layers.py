@@ -1,5 +1,5 @@
 import numpy as np
-from utility import Sigmoid
+from utility import Sigmoid, ReLu, convolve_2d
 
 _GLOBAL_SEED_ = 1
 
@@ -44,43 +44,30 @@ class FullyConnectedLayer:
 
 class ConvolutionalPoolLayer:
 
-    def __init__(self, in_s, filter_s, pool_s=(2, 2), act_fn=Sigmoid):
+    def __init__(self, in_s, filter_s, pool_s=(2, 2), act_fn=ReLu):
 
         self.in_size = in_s
         self.weight = [np.random.normal(loc=0, scale=0.12, size=i) for i in filter_s]
         self.biases = [np.random.normal(loc=0, scale=0.12, size=1)] * len(filter_s)
-        self.pool_s = pool_s
+        self.pool_layer = MaxPoolLayer(pool_s)
         self.act_fn = act_fn
 
-    def feedforward(self, x):
+    def feedforward(self, a, z_arr=None, a_arr=None):
+
+        if z_arr is None:
+            z_arr = []
+        if a_arr is None:
+            a_arr = [a]
 
         filter_results, pool_results = [], []
 
         # Performing image feature activations for each filter.
         for f, b in zip(self.weight, self.biases):
-            result_dim = (x.shape[0] - f.shape[0] + 1, x.shape[1] - f.shape[1] + 1)
-            result = np.zeros(shape=result_dim)
-
-            for i in range(result_dim[0]):
-                for j in range(result_dim[1]):
-                    z = np.sum(f * x[i: i + f.shape[0], j: j + f.shape[1]]) + b
-                    a = self.act_fn.activate(z)
-                    result[i][j] = a
-
-            filter_results.append(result)
+            filter_results.append(self.act_fn.activate(convolve_2d(a, f) + b))
 
         # Performing pooling of the results for each filter.
         for result in filter_results:
-            pool = np.zeros((int((result.shape[0] + result.shape[0] % self.pool_s[0]) / self.pool_s[0]),
-                             int((result.shape[1] + result.shape[1] % self.pool_s[0]) / self.pool_s[1])),
-                            dtype=np.float32)
-
-            for i in range(0, result.shape[0], self.pool_s[0]):
-                for j in range(0, result.shape[1], self.pool_s[1]):
-                    pool[int(i / self.pool_s[0]), int(j / self.pool_s[1])] = \
-                        np.argmax(result[i: i + self.pool_s[0], j: j + self.pool_s[1]])
-
-            pool_results.append(pool)
+            pool_results.append(self.pool_layer.feedforward(result))
 
         # Performing filter outputs concatenation.
         output = np.reshape(pool_results[0], [np.size(pool_results[0])])
@@ -88,4 +75,25 @@ class ConvolutionalPoolLayer:
         for i in pool_results[1:]:
             output = np.concatenate((output, np.reshape(i, [np.size(i)])), 0)
 
+        z_arr.append(filter_results), a_arr.append(pool_results)
+
         return output
+
+
+class MaxPoolLayer:
+
+    def __init__(self, pool_s=(2, 2)):
+        self.pool_s = pool_s
+
+    def feedforward(self, x):
+
+        pool = np.zeros((int((x.shape[0] + x.shape[0] % self.pool_s[0]) / self.pool_s[0]),
+                         int((x.shape[1] + x.shape[1] % self.pool_s[0]) / self.pool_s[1])),
+                        dtype=np.float32)
+
+        for i in range(0, x.shape[0], self.pool_s[0]):
+            for j in range(0, x.shape[1], self.pool_s[1]):
+                pool[int(i / self.pool_s[0]), int(j / self.pool_s[1])] = \
+                    np.amax(x[i: i + self.pool_s[0], j: j + self.pool_s[1]])
+
+        return pool

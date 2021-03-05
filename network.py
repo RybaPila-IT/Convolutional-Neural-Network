@@ -22,15 +22,18 @@ class NeuralNetwork:
 
     def predict(self, x):
 
-        return np.array([(i == np.max(i)) * 1 for i in self.feedforward(x)[0]])
+        feed_result = self.feedforward(x)[0]
+
+        return np.array([(i == np.max(i)) * 1 for i in feed_result]) if feed_result.ndim > 1 else \
+            (feed_result == np.max(feed_result)) * 1
 
     def backpropagation(self, x, y):
 
         result = self.feedforward(x)
         z_arr, a_arr = result[1], result[2]
 
-        delta_w = [np.zeros(layer.weights.shape) for layer in self.layers]
-        delta_b = [np.zeros(layer.biases.shape) for layer in self.layers]
+        delta_w = [([np.zeros(u)] for u in layer.weights_sizes) for layer in self.layers]
+        delta_b = [([np.zeros(b)] for b in layer.biases_sizes) for layer in self.layers]
 
         # Last layer error calculation.
         delta = self.cost_fn.derivative(a_arr[-1], y, z_arr[-1])

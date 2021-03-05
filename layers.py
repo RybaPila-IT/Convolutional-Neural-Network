@@ -10,7 +10,8 @@ class FullyConnectedLayer:
 
     def __init__(self, in_, out_, reg_term=0.1, act_fn=Sigmoid):
 
-        self.params = (in_, out_)
+        self.weights_sizes = [(in_, out_)]
+        self.biases_sizes = [out_]
         self.weights = np.random.normal(loc=0, scale=0.012, size=(out_, in_))
         self.biases = np.random.normal(loc=0, scale=0.012, size=out_)
         self.reg_term = reg_term
@@ -47,7 +48,9 @@ class ConvolutionalPoolLayer:
     def __init__(self, in_s, filter_s, pool_s=(2, 2), act_fn=ReLu):
 
         self.in_size = in_s
-        self.weight = [np.random.normal(loc=0, scale=0.12, size=i) for i in filter_s]
+        self.weights_sizes = [i for i in filter_s]
+        self.biases_sizes = [1] * len(filter_s)
+        self.weights = [np.random.normal(loc=0, scale=0.12, size=i) for i in filter_s]
         self.biases = [np.random.normal(loc=0, scale=0.12, size=1)] * len(filter_s)
         self.pool_layer = MaxPoolLayer(pool_s)
         self.act_fn = act_fn
@@ -62,7 +65,7 @@ class ConvolutionalPoolLayer:
         filter_results, pool_results = [], []
 
         # Performing image feature activations for each filter.
-        for f, b in zip(self.weight, self.biases):
+        for f, b in zip(self.weights, self.biases):
             filter_results.append(self.act_fn.activate(convolve_2d(a, f) + b))
 
         # Performing pooling of the results for each filter.
@@ -75,9 +78,24 @@ class ConvolutionalPoolLayer:
         for i in pool_results[1:]:
             output = np.concatenate((output, np.reshape(i, [np.size(i)])), 0)
 
-        z_arr.append(filter_results), a_arr.append(pool_results)
+        z_arr.append((filter_results, pool_results)), a_arr.append(output)
 
         return output
+
+    def backpropagation(self, layer_z, next_l_weights=None, prev_l_act=None, delta=None):
+
+        filter_deltas = []
+        offset = 0
+
+        for pool in layer_z[1]:
+            filter_deltas.append(np.reshape(delta[offset: offset + np.size(pool)], pool.shape))
+            offset += np.size(pool)
+
+        for idx, f in enumerate(self.weights):
+            self.pool_layer.backpropagation(layer_z[0][idx], filter_deltas[idx])
+
+
+
 
 
 class MaxPoolLayer:
@@ -97,3 +115,22 @@ class MaxPoolLayer:
                     np.amax(x[i: i + self.pool_s[0], j: j + self.pool_s[1]])
 
         return pool
+
+    def backpropagation(self, prev_a, e):
+
+        result = np.zeros(prev_a.shape)
+
+        _y_s = self.pool_s[0]
+        _x_s = self.pool_s[1]
+
+        for i in range(e.shape[0]):
+            for j in range(e.shape[0]):
+                result[i * _y_s: (i + 1) * _y_s, j * _x_s: (j + 1) * _x_s] = \
+                    (prev_a[i * _y_s: (i + 1) * _y_s, j * _x_s: (j + 1) * _x_s] ==
+                     np.amax(prev_a[i * _y_s: (i + 1) * _y_s, j * _x_s: (j + 1) * _x_s])) * \
+                    (0 if e[i][j] == 0 else e[i][j])
+
+        return result
+
+
+

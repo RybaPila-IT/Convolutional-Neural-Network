@@ -33,9 +33,11 @@ if __name__ == '__main__':
     test_data = [(np.reshape(x_, np.size(x_)).astype(np.float32) / 255, (pred_arr == y_) * 1)
                  for x_, y_ in zip(x_test, y_test)]
 
-    # network.sgd(training_data, test_data=validation_data)
+    #network.sgd(training_data, epochs=15, test_data=validation_data)
 
-    layer = ConvolutionalPoolLayer((28, 28), [(3, 3), (3, 3), (5, 5)])
-    z_arr, a_arr = [], [x_train[0]]
+    network2 = NeuralNetwork([ConvolutionalPoolLayer((28, 28), [(3, 3), (3, 3), (5, 5)]),
+                              FullyConnectedLayer(482, 10)])
 
-    print(layer.feedforward(x_train[0], z_arr, a_arr))
+    print(network2.backpropagation(x_train[0], training_data[0][1]))
+
+

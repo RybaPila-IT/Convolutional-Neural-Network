@@ -1,3 +1,4 @@
+import math
 import numpy as np
 from utility import Sigmoid, ReLu, convolve_2d
 
@@ -12,8 +13,10 @@ class FullyConnectedLayer:
 
         self.weights_sizes = [(in_, out_)]
         self.biases_sizes = [out_]
+        self.weights_u = np.zeros((out_, in_))
         self.weights = np.random.normal(loc=0, scale=0.012, size=(out_, in_))
         self.biases = np.random.normal(loc=0, scale=0.012, size=out_)
+        self.biases_u = np.zeros(out_)
         self.reg_term = reg_term
         self.act_fn = act_fn
 
@@ -34,9 +37,19 @@ class FullyConnectedLayer:
     def backpropagation(self, layer_z, next_l_weights, prev_l_act, delta):
 
         z_d = self.act_fn.derivative(layer_z)
-        delta = np.dot(next_l_weights.T, np.sum(delta, axis=0)) * z_d
+        delta = np.dot(next_l_weights.T, delta) * z_d
 
-        return np.dot(delta.T, prev_l_act), np.sum(delta, axis=0), delta
+        self.biases_u += delta
+        self.weights_u += np.dot(np.array([delta]).T, np.array([prev_l_act]))
+
+        return delta
+
+    def update(self, eta):
+
+        self.biases -= self.biases_u * eta
+        self.weights -= self.weights_u * eta
+        self.biases_u *= 0
+        self.weights_u *= 0
 
     def weights_cost(self):
 
@@ -45,7 +58,7 @@ class FullyConnectedLayer:
 
 class ConvolutionalPoolLayer:
 
-    def __init__(self, in_s, filter_s, pool_s=(2, 2), act_fn=ReLu):
+    def __init__(self, in_s, filter_s, pool_s=(2, 2), act_fn=ReLu, flattens=True):
 
         self.in_size = in_s
         self.weights_sizes = [i for i in filter_s]
@@ -53,7 +66,11 @@ class ConvolutionalPoolLayer:
         self.weights = [np.random.normal(loc=0, scale=0.12, size=i) for i in filter_s]
         self.biases = [np.random.normal(loc=0, scale=0.12, size=1)] * len(filter_s)
         self.pool_layer = MaxPoolLayer(pool_s)
+        self.flatten_layer = FlattenLayer([(math.ceil((in_s[0] - f_s[0] + 1) / pool_s[0]),
+                                            math.ceil((in_s[1] - f_s[1]) + 1) / pool_s[1])
+                                           for f_s in filter_s])
         self.act_fn = act_fn
+        self.flattens = flattens
 
     def feedforward(self, a, z_arr=None, a_arr=None):
 
@@ -72,30 +89,23 @@ class ConvolutionalPoolLayer:
         for result in filter_results:
             pool_results.append(self.pool_layer.feedforward(result))
 
-        # Performing filter outputs concatenation.
-        output = np.reshape(pool_results[0], [np.size(pool_results[0])])
+        # Performing filter outputs flattening
+        output = self.flatten_layer.feedforward(pool_results) if self.flattens \
+            else pool_results
 
-        for i in pool_results[1:]:
-            output = np.concatenate((output, np.reshape(i, [np.size(i)])), 0)
-
-        z_arr.append((filter_results, pool_results)), a_arr.append(output)
+        z_arr.append(filter_results), a_arr.append(output)
 
         return output
 
     def backpropagation(self, layer_z, next_l_weights=None, prev_l_act=None, delta=None):
 
-        filter_deltas = []
-        offset = 0
+        filter_pool_deltas = self.flatten_layer.backpropagation(delta) if self.flattens \
+            else delta
 
-        for pool in layer_z[1]:
-            filter_deltas.append(np.reshape(delta[offset: offset + np.size(pool)], pool.shape))
-            offset += np.size(pool)
+        filter_deltas = []
 
         for idx, f in enumerate(self.weights):
-            self.pool_layer.backpropagation(layer_z[0][idx], filter_deltas[idx])
-
-
-
+            filter_deltas.append(self.pool_layer.backpropagation(layer_z[idx], filter_pool_deltas[idx]))
 
 
 class MaxPoolLayer:
@@ -105,8 +115,8 @@ class MaxPoolLayer:
 
     def feedforward(self, x):
 
-        pool = np.zeros((int((x.shape[0] + x.shape[0] % self.pool_s[0]) / self.pool_s[0]),
-                         int((x.shape[1] + x.shape[1] % self.pool_s[0]) / self.pool_s[1])),
+        pool = np.zeros((math.ceil(x.shape[0] / self.pool_s[0]),
+                         math.ceil(x.shape[1] / self.pool_s[1])),
                         dtype=np.float32)
 
         for i in range(0, x.shape[0], self.pool_s[0]):
@@ -133,4 +143,29 @@ class MaxPoolLayer:
         return result
 
 
+class FlattenLayer:
 
+    def __init__(self, in_s):
+        self.in_s = in_s
+
+    @staticmethod
+    def feedforward(inp):
+
+        flat = np.array([])
+
+        for i in inp:
+            flat = np.concatenate((flat, np.reshape(i, [np.size(i)])), 0)
+
+        return flat
+
+    def backpropagation(self, inp):
+
+        output = []
+        offset = 0
+
+        for shape in self.in_s:
+            size = shape[0] * shape[1]
+            output.append(np.reshape(inp[offset: offset + size], shape))
+            offset += size
+
+        return output

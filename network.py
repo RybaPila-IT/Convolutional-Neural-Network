@@ -24,41 +24,36 @@ class NeuralNetwork:
 
         feed_result = self.feedforward(x)[0]
 
-        return np.array([(i == np.max(i)) * 1 for i in feed_result]) if feed_result.ndim > 1 else \
-            (feed_result == np.max(feed_result)) * 1
+        return (feed_result == np.max(feed_result)) * 1
 
     def backpropagation(self, x, y):
 
         result = self.feedforward(x)
         z_arr, a_arr = result[1], result[2]
 
-        delta_w = [([np.zeros(u)] for u in layer.weights_sizes) for layer in self.layers]
-        delta_b = [([np.zeros(b)] for b in layer.biases_sizes) for layer in self.layers]
-
         # Last layer error calculation.
+        # NOTE: There is the assumption that the last layer is the
+        # fully connected layer.
         delta = self.cost_fn.derivative(a_arr[-1], y, z_arr[-1])
-        delta_b[-1] = np.sum(delta, axis=0)
-        delta_w[-1] = np.dot(delta.T, a_arr[-2])
+        last_lay_err_b = delta
+        last_lay_err_w = np.dot(np.array([delta]).T, np.array([a_arr[-2]]))
+
+        # Saving layer updates by hand.
+        self.layers[-1].biases_u += last_lay_err_b
+        self.layers[-1].weights_u += last_lay_err_w
 
         # Performing chain rule.
         for l_ in range(2, len(self.layers) + 1):
-            result = self.layers[-l_].backpropagation(z_arr[-l_], self.layers[-l_ + 1].weights, a_arr[-l_ - 1], delta)
-            delta_w[-l_] = result[0]
-            delta_b[-l_] = result[1]
-            delta = result[2]
+            delta = self.layers[-l_].backpropagation(z_arr[-l_], self.layers[-l_ + 1].weights, a_arr[-l_ - 1], delta)
 
-        return delta_w, delta_b
 
     def gradient_descent_step(self, batch, eta):
 
-        images = np.array([x_ for x_, y_ in batch])
-        labels = np.array([y_ for x_, y_ in batch])
+        for x, y in batch:
+            self.backpropagation(x, y)
 
-        delta_w, delta_b = self.backpropagation(images, labels)
-
-        for idx, layer in enumerate(self.layers):
-            layer.weights -= eta * delta_w[idx]
-            layer.biases -= eta * delta_b[idx]
+        for layer in self.layers:
+            layer.update(eta)
 
     def sgd(self, training_data, epochs=30, batch_size=10, eta=0.01, test_data=None):
 

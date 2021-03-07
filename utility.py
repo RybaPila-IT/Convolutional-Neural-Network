@@ -102,7 +102,15 @@ class CrossEntropy:
 
 
 def convolve_2d(s, f):
+    """Perform the convolution operation.
+    Convolution is being applied between two matrix arguments of the function.
+    Function returns matrix, which is the result of operation.
 
+    :param s - source on which the convolution will be performed.
+    :param f - filter which will be slided across the `s` parameter.
+
+    :returns matrix representing the convolution.
+    """
     f_x_, f_y_ = f.shape[0], f.shape[1]
 
     result_dim = (s.shape[0] - f_x_ + 1, s.shape[1] - f_y_ + 1)
@@ -116,7 +124,15 @@ def convolve_2d(s, f):
 
 
 def full_convolve_2d(src, fil):
-
+    """Performs special convolution type.
+    Function performs operation known as the full convolution.
+    This operation is being used while computing gradient in
+    convolutional network for previous layer.
+    For more information one should get familiar with backpropagation
+    in convolutional layer.
+    :param src - source on which the 'fil' will be slided.
+    :param fil - filter which will be slided across the `src`.
+    :returns full convolution result."""
     fil = np.rot90(fil, 2)
 
     result_dim = (src.shape[0] + fil.shape[0] - 1, src.shape[1] + fil.shape[1] - 1)

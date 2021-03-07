@@ -55,7 +55,7 @@ class NeuralNetwork:
         for layer in self.layers:
             layer.update(eta)
 
-    def sgd(self, training_data, epochs=30, batch_size=10, eta=0.01, test_data=None):
+    def sgd(self, training_data, epochs=30, batch_size=10, eta=0.01, validation_data=None):
 
         costs, accuracies = [], []
 
@@ -67,19 +67,27 @@ class NeuralNetwork:
             for batch in batches:
                 self.gradient_descent_step(batch, eta)
 
-            cost = self.cost_fn.prediction_cost(self.feedforward([x_ for x_, y_ in training_data])[0],
-                                                np.array([y_ for x_, y_ in training_data]))
+            cost = 0
+
+            for x, y in training_data:
+                cost += self.cost_fn.prediction_cost(self.feedforward(x)[0], y)
+
             costs.append(cost)
             print('Epoch {} ended with cost: {:.3f}'.format(e + 1, cost))
 
-            if test_data:
-                accuracies.append(self.metric.metric_value(self.predict([x_ for x_, y_ in test_data]),
-                                                           [y_ for x_, y_ in test_data]))
+            if validation_data:
+                correct = 0
+                for x, y in validation_data:
+                    if np.array_equal(self.predict(x), y):
+                        correct += 1
+                accuracies.append(correct / len(validation_data))
+
 
         self.plot(costs, 'Costs graph for eta: {:.3f}'.format(eta), 'Epochs', 'Cost', 'ro-')
 
         if len(accuracies) > 0:
             self.plot(accuracies, 'Accuracies graph for eta: {:.3f}'.format(eta), 'Epochs', 'Accuracy', 'g*-')
+            print('Max validation accuracy is: {:.3f}'.format(max(accuracies)))
 
     @staticmethod
     def plot(y, title, x_label, y_label, styling):

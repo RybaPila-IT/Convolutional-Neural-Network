@@ -1,6 +1,6 @@
 import math
 import numpy as np
-from utility import Sigmoid, ReLu, convolve_2d
+from utility import Sigmoid, ReLu, convolve_2d, full_convolve_2d
 
 _GLOBAL_SEED_ = 1
 
@@ -58,18 +58,18 @@ class FullyConnectedLayer:
 
 class ConvolutionalPoolLayer:
 
-    def __init__(self, in_s, filter_s, pool_s=(2, 2), act_fn=ReLu, flattens=True):
+    def __init__(self, in_s, filter_s, pool_s=(2, 2), flattens=True):
 
         self.in_size = in_s
-        self.weights_sizes = [i for i in filter_s]
-        self.biases_sizes = [1] * len(filter_s)
+        self.weights_u = [np.zeros(i) for i in filter_s]
+        self.biases_u = [np.zeros(1)] * len(filter_s)
         self.weights = [np.random.normal(loc=0, scale=0.12, size=i) for i in filter_s]
         self.biases = [np.random.normal(loc=0, scale=0.12, size=1)] * len(filter_s)
         self.pool_layer = MaxPoolLayer(pool_s)
-        self.flatten_layer = FlattenLayer([(math.ceil((in_s[0] - f_s[0] + 1) / pool_s[0]),
-                                            math.ceil((in_s[1] - f_s[1]) + 1) / pool_s[1])
+        self.flatten_layer = FlattenLayer([(int(math.ceil((in_s[0] - f_s[0] + 1) / pool_s[0])),
+                                            int(math.ceil((in_s[1] - f_s[1]) + 1) / pool_s[1]))
                                            for f_s in filter_s])
-        self.act_fn = act_fn
+        self.act_fn = ReLu
         self.flattens = flattens
 
     def feedforward(self, a, z_arr=None, a_arr=None):
@@ -99,7 +99,7 @@ class ConvolutionalPoolLayer:
 
     def backpropagation(self, layer_z, next_l_weights=None, prev_l_act=None, delta=None):
 
-        filter_pool_deltas = self.flatten_layer.backpropagation(delta) if self.flattens \
+        filter_pool_deltas = self.flatten_layer.backpropagation(delta, next_l_weights) if self.flattens \
             else delta
 
         filter_deltas = []
@@ -107,6 +107,28 @@ class ConvolutionalPoolLayer:
         for idx, f in enumerate(self.weights):
             filter_deltas.append(self.pool_layer.backpropagation(layer_z[idx], filter_pool_deltas[idx]))
 
+        for idx, del_t in enumerate(filter_deltas):
+            self.weights_u[idx] += convolve_2d(prev_l_act, del_t)
+            self.biases_u[idx] += np.sum(del_t)
+
+        # Section commented because of huge slow down
+        # due to the fact of computations involved with
+        # full_convolve_2d function
+
+        # delta = []
+
+        # for filter, del_t in zip(self.weights, filter_deltas):
+          #  delta.append(full_convolve_2d(del_t, filter))
+
+        return delta
+
+    def update(self, eta):
+
+        for i in range(len(self.weights_u)):
+            self.weights[i] -= eta * self.weights_u[i]
+            self.biases[i] -= eta * self.biases_u[i]
+            self.biases_u[i] *= 0
+            self.weights_u[i] *= 0
 
 class MaxPoolLayer:
 
@@ -158,7 +180,9 @@ class FlattenLayer:
 
         return flat
 
-    def backpropagation(self, inp):
+    def backpropagation(self, inp, next_l_weights):
+
+        inp = np.dot(next_l_weights.T, inp)
 
         output = []
         offset = 0

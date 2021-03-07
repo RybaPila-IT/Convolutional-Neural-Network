@@ -25,7 +25,7 @@ It is caused by several reasons:
 - Immense growth of the back-propagated gradients.
 - Several difficulties with flattening layers caused by the architecture of the layer.
 
-Nevertheless, convolutional layer performing fine as the input layer for the network.
+Nevertheless, convolutional layer is performing fine as the input layer for the network.
 
 ---
 
